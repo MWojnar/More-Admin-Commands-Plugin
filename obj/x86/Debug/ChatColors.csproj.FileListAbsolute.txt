@@ -1,0 +1,6 @@
+C:\Users\Michael\Downloads\TShock Current\ServerPlugins\TShockAPI.XML
+C:\Users\Michael\Downloads\TShock Current\ServerPlugins\TShockPluginTemplate.dll
+C:\Users\Michael\Downloads\TShock Current\ServerPlugins\TShockPluginTemplate.pdb
+C:\Users\Michael\Downloads\TShockPluginTemplate\TShockPluginTemplate\obj\x86\Debug\ResolveAssemblyReference.cache
+C:\Users\Michael\Downloads\TShockPluginTemplate\TShockPluginTemplate\obj\x86\Debug\TShockPluginTemplate.dll
+C:\Users\Michael\Downloads\TShockPluginTemplate\TShockPluginTemplate\obj\x86\Debug\TShockPluginTemplate.pdb
