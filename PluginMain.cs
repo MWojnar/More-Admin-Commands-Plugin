@@ -29,6 +29,7 @@ namespace PluginTemplate
         public static double timeToFreezeAt = 1000;
         public static bool freezeDayTime = true;
         public static bool[] isGhost = new bool[256];
+        public static bool[] isHeal = new bool[256];
         public static bool cansend = false;
         public override string Name
         {
@@ -54,6 +55,7 @@ namespace PluginTemplate
             ServerHooks.Chat += OnChat;
             NetHooks.SendData += OnSendData;
             ServerHooks.Leave += OnLeave;
+            NetHooks.GetData += OnGetData;
         }
         public override void DeInitialize()
         {
@@ -62,6 +64,7 @@ namespace PluginTemplate
             ServerHooks.Chat -= OnChat;
             NetHooks.SendData -= OnSendData;
             ServerHooks.Leave -= OnLeave;
+            NetHooks.GetData -= OnGetData;
         }
         public PluginTemplate(Main game)
             : base(game)
@@ -88,22 +91,82 @@ namespace PluginTemplate
             {
 
                 isGhost[i] = false;
+                isHeal[i] = false;
 
             }
             Commands.ChatCommands.Add(new Command("ghostmode", Ghost, "ghost"));
             Commands.ChatCommands.Add(new Command("time",FreezeTime,"freezetime"));
             Commands.ChatCommands.Add(new Command("spawnmob", SpawnMobPlayer, "spawnmobplayer"));
+            Commands.ChatCommands.Add(new Command("heal", AutoHeal, "autoheal"));
         }
 
         private DateTime LastCheck = DateTime.UtcNow;
 
         private void OnLeave(int ply)
         {
-            var tsplr = TShock.Players[ply];
+            isGhost[ply] = false;
+            isHeal[ply] = false;
+        }
 
-            if (tsplr != null && tsplr.ReceivedInfo)
+        void OnGetData(GetDataEventArgs e)
+        {
+            if (e.MsgID == PacketTypes.PlayerHp)
             {
-                isGhost[tsplr.Index] = false;
+
+                using (var data = new MemoryStream(e.Msg.readBuffer, e.Index, e.Length))
+                {
+                    var reader = new BinaryReader(data);
+                    var playerID = reader.ReadByte();
+                    var theHP = reader.ReadInt16();
+                    var theMaxHP = reader.ReadInt16();
+                    if (isHeal[playerID])
+                    {
+
+                        Item heart = Tools.GetItemById(58);
+                        Item star = Tools.GetItemById(184);
+                        if (theHP <= theMaxHP / 2)
+                        {
+
+                            for (int i = 0; i < 20; i++)
+                                TShock.Players[playerID].GiveItem(heart.type, heart.name, heart.width, heart.height, heart.maxStack);
+                            for (int i = 0; i < 10; i++)
+                                TShock.Players[playerID].GiveItem(star.type, star.name, star.width, star.height, star.maxStack);
+                            TShock.Players[playerID].SendMessage("You just got healed!");
+                        }
+
+                    }
+
+                }
+
+            }
+            if (e.MsgID == PacketTypes.PlayerMana)
+            {
+
+                using (var data = new MemoryStream(e.Msg.readBuffer, e.Index, e.Length))
+                {
+                    var reader = new BinaryReader(data);
+                    var playerID = reader.ReadByte();
+                    var theMana = reader.ReadInt16();
+                    var theMaxMana = reader.ReadInt16();
+                    if (isHeal[playerID])
+                    {
+
+                        Item heart = Tools.GetItemById(58);
+                        Item star = Tools.GetItemById(184);
+                        if (theMana <= theMaxMana / 2)
+                        {
+
+                            for (int i = 0; i < 20; i++)
+                                TShock.Players[playerID].GiveItem(heart.type, heart.name, heart.width, heart.height, heart.maxStack);
+                            for (int i = 0; i < 10; i++)
+                                TShock.Players[playerID].GiveItem(star.type, star.name, star.width, star.height, star.maxStack);
+                            TShock.Players[playerID].SendMessage("You just got healed!");
+                        }
+
+                    }
+
+                }
+
             }
         }
 
@@ -151,6 +214,22 @@ namespace PluginTemplate
                 }
             }
             catch (Exception) { }
+
+        }
+
+        public static void AutoHeal(CommandArgs args) 
+        {
+
+            isHeal[args.Player.Index] = !isHeal[args.Player.Index];
+            if (isHeal[args.Player.Index]) {
+
+                args.Player.SendMessage("Auto Heal Mode is now on.");
+
+            } else {
+                
+                args.Player.SendMessage("Auto Heal Mode is now off.");
+
+            }
 
         }
 
