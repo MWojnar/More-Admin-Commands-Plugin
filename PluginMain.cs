@@ -30,6 +30,10 @@ namespace PluginTemplate
         public static bool freezeDayTime = true;
         public static bool[] isGhost = new bool[256];
         public static bool[] isHeal = new bool[256];
+        public static bool[] flyMode = new bool[256];
+        public static List<List<PointF>> carpetPoints = new List<List<PointF>>();
+        public static int[] carpetY = new int[256];
+        public static bool[] upPressed = new bool[256];
         public static bool cansend = false;
         public override string Name
         {
@@ -92,12 +96,16 @@ namespace PluginTemplate
 
                 isGhost[i] = false;
                 isHeal[i] = false;
+                flyMode[i] = false;
+                upPressed[i] = false;
+                carpetPoints.Add(new List<PointF>());
 
             }
             Commands.ChatCommands.Add(new Command("ghostmode", Ghost, "ghost"));
             Commands.ChatCommands.Add(new Command("time",FreezeTime,"freezetime"));
             Commands.ChatCommands.Add(new Command("spawnmob", SpawnMobPlayer, "spawnmobplayer"));
             Commands.ChatCommands.Add(new Command("heal", AutoHeal, "autoheal"));
+            Commands.ChatCommands.Add(new Command("fly", Fly, "fly"));
         }
 
         private DateTime LastCheck = DateTime.UtcNow;
@@ -106,6 +114,7 @@ namespace PluginTemplate
         {
             isGhost[ply] = false;
             isHeal[ply] = false;
+            flyMode[ply] = false;
         }
 
         void OnGetData(GetDataEventArgs e)
@@ -217,6 +226,34 @@ namespace PluginTemplate
 
         }
 
+        public static void Fly(CommandArgs args)
+        {
+
+            flyMode[args.Player.Index] = !flyMode[args.Player.Index];
+            carpetY[args.Player.Index] = args.Player.TileY;
+            if (flyMode[args.Player.Index])
+            {
+
+                args.Player.SendMessage("Flying carpet activated.");
+
+            }
+            else
+            {
+
+                foreach (PointF entry in carpetPoints[args.Player.Index])
+                {
+
+                    Main.tile[(int)entry.X, (int)entry.Y].active = false;
+                    TSPlayer.All.SendTileSquare((int)entry.X, (int)entry.Y, 1);
+                    //carpetPoints.Remove(entry);
+
+                }
+                args.Player.SendMessage("Flying carpet deactivated.");
+
+            }
+
+        }
+
         public static void AutoHeal(CommandArgs args) 
         {
 
@@ -290,6 +327,105 @@ namespace PluginTemplate
                     TSPlayer.Server.SetTime(freezeDayTime, timeToFreezeAt);
 
                 }
+            }
+            for (int i = 0; i < 256; i++)
+            {
+
+                if (flyMode[i])
+                {
+
+                    try
+                    {
+
+                        if (TShock.Players[i].TileY > carpetY[i])
+                        {
+
+                                foreach (PointF entry in carpetPoints[i])
+                                {
+
+                                    Main.tile[(int)entry.X, (int)entry.Y].active = false;
+                                    TSPlayer.All.SendTileSquare((int)entry.X, (int)entry.Y, 1);
+                                    carpetPoints[i].Remove(entry);
+                                    carpetY[i] = TShock.Players[i].TileY + 10;
+
+                                }
+
+                        }
+                        foreach (PointF entry in carpetPoints[i])
+                        {
+
+                            if (Main.tile[(int)entry.X, (int)entry.Y].type == 54)
+                            {
+                                if ((entry.Y < TShock.Players[i].TileY + 3) || (entry.Y != carpetY[i] + 3) || (Math.Abs(TShock.Players[i].TileX - entry.X) > 5))
+                                {
+
+                                    Main.tile[(int)entry.X, (int)entry.Y].active = false;
+                                    TSPlayer.All.SendTileSquare((int)entry.X, (int)entry.Y, 1);
+                                    carpetPoints[i].Remove(entry);
+
+                                }
+                            }
+                            else if ((entry.Y == TShock.Players[i].TileY + 3) && (TShock.Players[i].TPlayer.velocity.Y == 0))
+                            {
+
+                                carpetY[i] = TShock.Players[i].TileY;
+                                Main.tile[(int)entry.X, (int)entry.Y].type = 54;
+                                TSPlayer.All.SendTileSquare((int)entry.X, (int)entry.Y, 3);
+
+                            }
+                            else if ((entry.X < TShock.Players[i].TileX - 1) || (entry.X > TShock.Players[i].TileX + 2) || (entry.Y != carpetY[i] - 1))
+                            {
+
+                                Main.tile[(int)entry.X, (int)entry.Y].active = false;
+                                TSPlayer.All.SendTileSquare((int)entry.X, (int)entry.Y, 3);
+                                carpetPoints[i].Remove(entry);
+
+                            }
+
+                        }
+                        if (TShock.Players[i].TileY >= carpetY[i])
+                        {
+                            if (TShock.Players[i].TPlayer.controlDown)
+                            {
+
+                                carpetY[i] += 4;
+
+                            }
+                        }
+                        for (int j = -5; j <= 5; j++)
+                        {
+
+                            if (!Main.tile[TShock.Players[i].TileX + j, carpetY[i] + 3].active)
+                            {
+
+                                Main.tile[TShock.Players[i].TileX + j, carpetY[i] + 3].type = 54;
+                                Main.tile[TShock.Players[i].TileX + j, carpetY[i] + 3].active = true;
+                                TSPlayer.All.SendTileSquare(TShock.Players[i].TileX + j, carpetY[i] + 3, 1);
+                                carpetPoints[i].Add(new PointF(TShock.Players[i].TileX + j, carpetY[i] + 3));
+
+                            }
+
+                        }
+                        for (int j = -1; j <= 2; j++)
+                        {
+
+                            if (!Main.tile[TShock.Players[i].TileX + j, carpetY[i] - 1].active)
+                            {
+
+                                Main.tile[TShock.Players[i].TileX + j, carpetY[i] - 1].type = 19;
+                                Main.tile[TShock.Players[i].TileX + j, carpetY[i] - 1].active = true;
+                                TSPlayer.All.SendTileSquare(TShock.Players[i].TileX + j, carpetY[i] - 1, 3);
+                                carpetPoints[i].Add(new PointF(TShock.Players[i].TileX + j, carpetY[i] - 1));
+
+                            }
+
+                        }
+
+                    }
+                    catch (Exception) { }
+
+                }
+
             }
 
         }
