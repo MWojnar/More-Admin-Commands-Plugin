@@ -197,7 +197,7 @@ namespace PluginTemplate
                 }
                 switch (e.MsgID)
                 {
-
+                        
                     case PacketTypes.DoorUse:
                     case PacketTypes.EffectHeal:
                     case PacketTypes.EffectMana:
@@ -209,6 +209,12 @@ namespace PluginTemplate
                         if ((ghostIDs.Contains(e.number)) && (isGhost[e.number]))
                             e.Handled = true;
                         break;
+                    case PacketTypes.ProjectileNew:
+                    case PacketTypes.ProjectileDestroy:
+                        if ((ghostIDs.Contains(e.ignoreClient)) && (isGhost[e.ignoreClient]))
+                            e.Handled = true;
+                        break;
+                    default: break;
 
                 }
                 if ((e.number >= 0) && (e.number <= 255) && (isGhost[e.number]))
