@@ -29,12 +29,14 @@ namespace PluginTemplate
         public static double timeToFreezeAt = 1000;
         public static bool freezeDayTime = true;
         public static bool[] isGhost = new bool[256];
+        public static bool cansend = false;
         public static bool[] isHeal = new bool[256];
         public static bool[] flyMode = new bool[256];
         public static List<List<PointF>> carpetPoints = new List<List<PointF>>();
         public static int[] carpetY = new int[256];
         public static bool[] upPressed = new bool[256];
-        public static bool cansend = false;
+        public static List<List<int>> buffsUsed = new List<List<int>>();
+        public static Dictionary<string, bool> regionMow = new Dictionary<string, bool>();
         public override string Name
         {
             get { return "MoreAdminCommands"; }
@@ -78,18 +80,40 @@ namespace PluginTemplate
 
         public void OnInitialize()
         {
+            SQLEditor = new SqlTableEditor(TShock.DB, TShock.DB.GetSqlType() == SqlType.Sqlite ? (IQueryBuilder)new SqliteQueryCreator() : new MysqlQueryCreator());
+            SQLWriter = new SqlTableCreator(TShock.DB, TShock.DB.GetSqlType() == SqlType.Sqlite ? (IQueryBuilder)new SqliteQueryCreator() : new MysqlQueryCreator());
+            var table = new SqlTable("regionMow",
+                        new SqlColumn("Name", MySqlDbType.Text),
+                        new SqlColumn("Mow", MySqlDbType.Int32));
+            SQLWriter.EnsureExists(table);
+            var readTableName = SQLEditor.ReadColumn("regionMow", "Name", new List<SqlValue>());
+            var readTableBool = SQLEditor.ReadColumn("regionMow", "Mow", new List<SqlValue>());
+            for (int i = 0; i < readTableName.Count; i++)
+            {
+
+                try
+                {
+                    regionMow.Add(readTableName[i].ToString(), Convert.ToBoolean(readTableBool[i]));
+                }
+                catch (Exception) { }
+
+            }
             bool morecommands = false;
             foreach (Group group in TShock.Groups.groups)
             {
                 if (group.Name != "superadmin")
                 {
-                    if (group.HasPermission("ghostmode"))
+                    if ((group.HasPermission("ghostmode")) && (group.HasPermission("fly")) && (group.HasPermission("flymisc")))
                         morecommands = true;
                 }
             }
             List<string> permlist = new List<string>();
             if (!morecommands)
+            {
                 permlist.Add("ghostmode");
+                permlist.Add("fly");
+                permlist.Add("flymisc");
+            }
             TShock.Groups.AddPermissions("trustedadmin", permlist);
             for (int i = 0; i < 256; i++)
             {
@@ -99,6 +123,7 @@ namespace PluginTemplate
                 flyMode[i] = false;
                 upPressed[i] = false;
                 carpetPoints.Add(new List<PointF>());
+                buffsUsed.Add(new List<int>());
 
             }
             Commands.ChatCommands.Add(new Command("ghostmode", Ghost, "ghost"));
@@ -109,6 +134,8 @@ namespace PluginTemplate
             Commands.ChatCommands.Add(new Command("flymisc", Fetch, "fetch"));
             Commands.ChatCommands.Add(new Command("flymisc", CarpetBody, "carpetbody"));
             Commands.ChatCommands.Add(new Command("flymisc", CarpetSides, "carpetsides"));
+            Commands.ChatCommands.Add(new Command("editspawn", Mow, "mow"));
+            Commands.ChatCommands.Add(new Command("buff", permaBuff, "permabuff"));
         }
 
         private DateTime LastCheck = DateTime.UtcNow;
@@ -125,6 +152,7 @@ namespace PluginTemplate
 
             }
             carpetPoints[ply] = new List<PointF>();
+            buffsUsed[ply] = new List<int>();
         }
 
         void OnGetData(GetDataEventArgs e)
@@ -242,29 +270,231 @@ namespace PluginTemplate
 
         }
 
-        public static void Fly(CommandArgs args)
+        public static void permaBuff(CommandArgs args)
         {
 
-            flyMode[args.Player.Index] = !flyMode[args.Player.Index];
-            carpetY[args.Player.Index] = args.Player.TileY;
-            if (flyMode[args.Player.Index])
+            if (args.Parameters.Count == 0)
             {
 
-                args.Player.SendMessage("Flying carpet activated.");
+                args.Player.SendMessage("Improper Syntax! Proper Syntax: /permabuff buff [player]", System.Drawing.Color.Red);
+
+            }
+            else if (args.Parameters.Count == 1)
+            {
+
+                int id = 0;
+                if (!int.TryParse(args.Parameters[0], out id))
+                {
+                    var found = Tools.GetBuffByName(args.Parameters[0]);
+                    if (found.Count == 0)
+                    {
+                        args.Player.SendMessage("Invalid buff name!", System.Drawing.Color.Red);
+                        return;
+                    }
+                    else if (found.Count > 1)
+                    {
+                        args.Player.SendMessage(string.Format("More than one ({0}) buff matched!", found.Count), System.Drawing.Color.Red);
+                        return;
+                    }
+                    id = found[0];
+                }
+                if (id > 0 && id < Main.maxBuffs)
+                {
+                    if (!buffsUsed[args.Player.Index].Contains(id))
+                    {
+                        args.Player.SetBuff(id, short.MaxValue);
+                        buffsUsed[args.Player.Index].Add(id);
+                        args.Player.SendMessage(string.Format("You have permabuffed yourself with {0}({1})!",
+                            Tools.GetBuffName(id), Tools.GetBuffDescription(id)), System.Drawing.Color.Green);
+                    }
+                    else
+                    {
+                        buffsUsed[args.Player.Index].Remove(id);
+                        args.Player.SendMessage(string.Format("You have removed your {0} permabuff.",
+                            Tools.GetBuffName(id)), System.Drawing.Color.Green);
+
+                    }
+                }
+                else
+                    args.Player.SendMessage("Invalid buff ID!", System.Drawing.Color.Red);
 
             }
             else
             {
 
-                foreach (PointF entry in carpetPoints[args.Player.Index])
+                string str = "";
+                for (int i = 1; i < args.Parameters.Count; i++)
                 {
 
-                    Main.tile[(int)entry.X, (int)entry.Y].active = false;
-                    TSPlayer.All.SendTileSquare((int)entry.X, (int)entry.Y, 1);
-                    //carpetPoints.Remove(entry);
+                    if (i != args.Parameters.Count - 1)
+                    {
+
+                        str += args.Parameters[i] + " ";
+
+                    }
+                    else
+                    {
+
+                        str += args.Parameters[i];
+
+                    }
 
                 }
-                args.Player.SendMessage("Flying carpet deactivated.");
+                List<TShockAPI.TSPlayer> playerList = Tools.FindPlayer(str);
+                if (playerList.Count > 1)
+                {
+
+                    args.Player.SendMessage("Player does not exist.", System.Drawing.Color.Red);
+
+                }
+                else if (playerList.Count < 1)
+                {
+
+                    args.Player.SendMessage(playerList.Count.ToString() + " players matched.", System.Drawing.Color.Red);
+
+                }
+                else
+                {
+
+                    TShockAPI.TSPlayer thePlayer = playerList[0];
+                    int id = 0;
+                    if (!int.TryParse(args.Parameters[0], out id))
+                    {
+                        var found = Tools.GetBuffByName(args.Parameters[0]);
+                        if (found.Count == 0)
+                        {
+                            args.Player.SendMessage("Invalid buff name!", System.Drawing.Color.Red);
+                            return;
+                        }
+                        else if (found.Count > 1)
+                        {
+                            args.Player.SendMessage(string.Format("More than one ({0}) buff matched!", found.Count), System.Drawing.Color.Red);
+                            return;
+                        }
+                        id = found[0];
+                    }
+                    if (id > 0 && id < Main.maxBuffs)
+                    {
+                        if (!buffsUsed[thePlayer.Index].Contains(id))
+                        {
+                            thePlayer.SetBuff(id, short.MaxValue);
+                            buffsUsed[thePlayer.Index].Add(id);
+                            args.Player.SendMessage(string.Format("You have permabuffed " + thePlayer.Name + " with {0}",
+                                Tools.GetBuffName(id)), System.Drawing.Color.Green);
+                            thePlayer.SendMessage(string.Format("You have been permabuffed with {0}({1})!",
+                             Tools.GetBuffName(id), Tools.GetBuffDescription(id)), System.Drawing.Color.Green);
+                        }
+                        else
+                        {
+                            buffsUsed[args.Player.Index].Remove(id);
+                            args.Player.SendMessage(string.Format("You have removed " + thePlayer.Name + "'s {0} permabuff.",
+                                Tools.GetBuffName(id)), System.Drawing.Color.Green);
+                            thePlayer.SendMessage(string.Format("Your {0} permabuff has been removed.",
+                                Tools.GetBuffName(id)), System.Drawing.Color.Green);
+
+                        }
+                    }
+                    else
+                        args.Player.SendMessage("Invalid buff ID!", System.Drawing.Color.Red);
+
+                }
+
+            }
+
+        }
+
+        public static void Fly(CommandArgs args)
+        {
+
+            if (args.Parameters.Count == 0)
+            {
+                flyMode[args.Player.Index] = !flyMode[args.Player.Index];
+                carpetY[args.Player.Index] = args.Player.TileY;
+                if (flyMode[args.Player.Index])
+                {
+
+                    args.Player.SendMessage("Flying carpet activated.");
+
+                }
+                else
+                {
+
+                    foreach (PointF entry in carpetPoints[args.Player.Index])
+                    {
+
+                        Main.tile[(int)entry.X, (int)entry.Y].active = false;
+                        TSPlayer.All.SendTileSquare((int)entry.X, (int)entry.Y, 1);
+                        //carpetPoints.Remove(entry);
+
+                    }
+                    args.Player.SendMessage("Flying carpet deactivated.");
+
+                }
+            }
+            else
+            {
+
+                string str = "";
+                for (int i = 0; i < args.Parameters.Count; i++)
+                {
+
+                    if (i != args.Parameters.Count - 1)
+                    {
+
+                        str += args.Parameters[i] + " ";
+
+                    }
+                    else
+                    {
+
+                        str += args.Parameters[i];
+
+                    }
+
+                }
+                List<TShockAPI.TSPlayer> playerList = Tools.FindPlayer(str);
+                if (playerList.Count > 1)
+                {
+
+                    args.Player.SendMessage("Player does not exist.", System.Drawing.Color.Red);
+
+                }
+                else if (playerList.Count < 1)
+                {
+
+                    args.Player.SendMessage(playerList.Count.ToString() + " players matched.", System.Drawing.Color.Red);
+
+                }
+                else
+                {
+
+                    TShockAPI.TSPlayer thePlayer = playerList[0];
+                    flyMode[thePlayer.Index] = !flyMode[thePlayer.Index];
+                    carpetY[thePlayer.Index] = thePlayer.TileY;
+                    if (flyMode[thePlayer.Index])
+                    {
+
+                        args.Player.SendMessage("Flying carpet activated for " + thePlayer.Name + ".");
+                        thePlayer.SendMessage("You have been given the flying carpet!");
+
+                    }
+                    else
+                    {
+
+                        foreach (PointF entry in carpetPoints[thePlayer.Index])
+                        {
+
+                            Main.tile[(int)entry.X, (int)entry.Y].active = false;
+                            TSPlayer.All.SendTileSquare((int)entry.X, (int)entry.Y, 1);
+                            //carpetPoints.Remove(entry);
+
+                        }
+                        args.Player.SendMessage("Flying carpet deactivated for " + thePlayer.Name + ".");
+                        thePlayer.SendMessage("Flying carpet deactivated.");
+
+                    }
+
+                }
 
             }
 
@@ -317,18 +547,167 @@ namespace PluginTemplate
 
 
         }
-
-        public static void AutoHeal(CommandArgs args) 
+        public static void Mow(CommandArgs args)
         {
 
-            isHeal[args.Player.Index] = !isHeal[args.Player.Index];
-            if (isHeal[args.Player.Index]) {
+            if (args.Parameters.Count > 0)
+            {
 
-                args.Player.SendMessage("Auto Heal Mode is now on.");
+                string str = "";
+                for (int i = 0; i < args.Parameters.Count; i++)
+                {
 
-            } else {
-                
-                args.Player.SendMessage("Auto Heal Mode is now off.");
+                    if (i != args.Parameters.Count - 1)
+                    {
+
+                        str += args.Parameters[i] + " ";
+
+                    }
+                    else
+                    {
+                        
+                        str += args.Parameters[i];
+
+                    }
+
+                }
+                TShockAPI.DB.Region theRegion = TShock.Regions.GetRegionByName(str);
+                if (theRegion != default(TShockAPI.DB.Region))
+                {
+                    try
+                    {
+                        int index = SearchTable(SQLEditor.ReadColumn("regionMow", "Name", new List<SqlValue>()),str);
+                        if (index == -1)
+                        {
+
+                            List<SqlValue> theList = new List<SqlValue>();
+                            theList.Add(new SqlValue("Name", "'" + str + "'"));
+                            theList.Add(new SqlValue("Mow", 1));
+                            SQLEditor.InsertValues("regionMow", theList);
+                            regionMow.Add(str, true);
+                            args.Player.SendMessage(str + " is now set to auto-mow.");
+
+                        }
+                        else if (Convert.ToBoolean(SQLEditor.ReadColumn("regionMow", "Mow", new List<SqlValue>())[index]))
+                        {
+
+                            List<SqlValue> theList = new List<SqlValue>();
+                            List<SqlValue> where = new List<SqlValue>();
+                            theList.Add(new SqlValue("Mow", 0));
+                            where.Add(new SqlValue("Name","'" + str + "'"));
+                            SQLEditor.UpdateValues("regionMow", theList, where);
+                            regionMow.Remove(str);
+                            regionMow.Add(str, false);
+                            args.Player.SendMessage(str + " now has auto-mow turned off.");
+
+                        }
+                        else
+                        {
+
+                            List<SqlValue> theList = new List<SqlValue>();
+                            List<SqlValue> where = new List<SqlValue>();
+                            theList.Add(new SqlValue("Mow", 1));
+                            where.Add(new SqlValue("Name", "'" + str + "'"));
+                            SQLEditor.UpdateValues("regionMow", theList, where);
+                            regionMow.Remove(str);
+                            regionMow.Add(str, true);
+                            args.Player.SendMessage(str + " is now set to auto-mow.");
+
+                        }
+                    }
+                    catch (Exception) { args.Player.SendMessage("An error occurred when writing to the DataBase.", System.Drawing.Color.Red); }
+
+                }
+                else
+                {
+
+                    args.Player.SendMessage("The specified region does not exist.");
+
+                }
+
+            }
+            else
+            {
+
+                args.Player.SendMessage("Improper Syntax.  Proper Syntax: /mow regionname", System.Drawing.Color.Red);
+
+            }
+
+        }
+
+        public static void AutoHeal(CommandArgs args)
+        {
+            if (args.Parameters.Count == 0)
+            {
+                isHeal[args.Player.Index] = !isHeal[args.Player.Index];
+                if (isHeal[args.Player.Index])
+                {
+
+                    args.Player.SendMessage("Auto Heal Mode is now on.");
+
+                }
+                else
+                {
+
+                    args.Player.SendMessage("Auto Heal Mode is now off.");
+
+                }
+            }
+            else
+            {
+
+                string str = "";
+                for (int i = 0; i < args.Parameters.Count; i++)
+                {
+
+                    if (i != args.Parameters.Count - 1)
+                    {
+
+                        str += args.Parameters[i] + " ";
+
+                    }
+                    else
+                    {
+
+                        str += args.Parameters[i];
+
+                    }
+
+                }
+                List<TShockAPI.TSPlayer> playerList = Tools.FindPlayer(str);
+                if (playerList.Count > 1)
+                {
+
+                    args.Player.SendMessage("Player does not exist.", System.Drawing.Color.Red);
+
+                }
+                else if (playerList.Count < 1)
+                {
+
+                    args.Player.SendMessage(playerList.Count.ToString() + " players matched.", System.Drawing.Color.Red);
+
+                }
+                else
+                {
+
+                    TShockAPI.TSPlayer thePlayer = playerList[0];
+                    isHeal[thePlayer.Index] = !isHeal[thePlayer.Index];
+                    if (isHeal[thePlayer.Index])
+                    {
+
+                        args.Player.SendMessage("You have activated auto-heal for " + thePlayer.Name + ".");
+                        thePlayer.SendMessage("You have been given regenerative powers!");
+
+                    }
+                    else
+                    {
+
+                        args.Player.SendMessage("You have deactivated auto-heal for " + thePlayer.Name + ".");
+                        thePlayer.SendMessage("You now have the healing powers of an average human.");
+
+                    }
+
+                }
 
             }
 
@@ -337,28 +716,97 @@ namespace PluginTemplate
         public static void Ghost(CommandArgs args)
         {
 
-            int tempTeam = args.Player.TPlayer.team;
-            args.Player.TPlayer.team = 0;
-            NetMessage.SendData(45, -1, -1, "", args.Player.Index);
-            args.Player.TPlayer.team = tempTeam;
-            if (!isGhost[args.Player.Index])
+            if (args.Parameters.Count == 0)
             {
+                int tempTeam = args.Player.TPlayer.team;
+                args.Player.TPlayer.team = 0;
+                NetMessage.SendData(45, -1, -1, "", args.Player.Index);
+                args.Player.TPlayer.team = tempTeam;
+                if (!isGhost[args.Player.Index])
+                {
 
-                args.Player.SendMessage("Ghost Mode activated!");
+                    args.Player.SendMessage("Ghost Mode activated!");
 
+                }
+                else
+                {
+
+                    args.Player.SendMessage("Ghost Mode deactivated!");
+
+                }
+                isGhost[args.Player.Index] = !isGhost[args.Player.Index];
+                args.Player.TPlayer.position.X = 0;
+                args.Player.TPlayer.position.Y = 0;
+                cansend = true;
+                NetMessage.SendData(13, -1, -1, "", args.Player.Index);
+                cansend = false;
             }
             else
             {
 
-                args.Player.SendMessage("Ghost Mode deactivated!");
+                string str = "";
+                for (int i = 0; i < args.Parameters.Count; i++)
+                {
+
+                    if (i != args.Parameters.Count - 1)
+                    {
+
+                        str += args.Parameters[i] + " ";
+
+                    }
+                    else
+                    {
+
+                        str += args.Parameters[i];
+
+                    }
+
+                }
+                List<TShockAPI.TSPlayer> playerList = Tools.FindPlayer(str);
+                if (playerList.Count > 1)
+                {
+
+                    args.Player.SendMessage("Player does not exist.", System.Drawing.Color.Red);
+
+                }
+                else if (playerList.Count < 1)
+                {
+
+                    args.Player.SendMessage(playerList.Count.ToString() + " players matched.", System.Drawing.Color.Red);
+
+                }
+                else
+                {
+
+                    TShockAPI.TSPlayer thePlayer = playerList[0];
+                    int tempTeam = thePlayer.TPlayer.team;
+                    thePlayer.TPlayer.team = 0;
+                    NetMessage.SendData(45, -1, -1, "", thePlayer.Index);
+                    thePlayer.TPlayer.team = tempTeam;
+                    if (!isGhost[thePlayer.Index])
+                    {
+
+                        args.Player.SendMessage("Ghost Mode activated for " + thePlayer.Name + ".");
+                        thePlayer.SendMessage("You have become a stealthy ninja!");
+
+                    }
+                    else
+                    {
+
+                        args.Player.SendMessage("Ghost Mode deactivated for " + thePlayer.Name + ".");
+                        thePlayer.SendMessage("You no longer have the stealth of a ninja.");
+
+                    }
+                    isGhost[thePlayer.Index] = !isGhost[thePlayer.Index];
+                    thePlayer.TPlayer.position.X = 0;
+                    thePlayer.TPlayer.position.Y = 0;
+                    cansend = true;
+                    NetMessage.SendData(13, -1, -1, "", thePlayer.Index);
+                    cansend = false;
+
+                }
 
             }
-            isGhost[args.Player.Index] = !isGhost[args.Player.Index];
-            args.Player.TPlayer.position.X = 0;
-            args.Player.TPlayer.position.Y = 0;
-            cansend = true;
-            NetMessage.SendData(13, -1, -1, "", args.Player.Index);
-            cansend = false;
 
         }
 
@@ -391,10 +839,68 @@ namespace PluginTemplate
                     TSPlayer.Server.SetTime(freezeDayTime, timeToFreezeAt);
 
                 }
+                for (int i = 0; i < 256; i++)
+                {
+
+                    foreach (int buffID in buffsUsed[i])
+                    {
+
+                        TShock.Players[i].SetBuff(buffID, short.MaxValue);
+
+                    }
+
+                }
+                foreach (KeyValuePair<string, bool> entry in regionMow)
+                {
+
+                    if (entry.Value)
+                    {
+
+                        TShockAPI.DB.Region theRegion = TShock.Regions.GetRegionByName(entry.Key);
+                        if (theRegion != default(TShockAPI.DB.Region))
+                        {
+                            
+                            for (int i = 0; i <= theRegion.Area.Height; i++)
+                            {
+
+                                for (int j = 0; j <= theRegion.Area.Width; j++)
+                                {
+
+                                    switch (Main.tile[theRegion.Area.X + j, theRegion.Area.Y + i].type)
+                                    {
+
+                                        case 3:
+                                        case 20:
+                                        case 24:
+                                        case 32:
+                                        case 52:
+                                        case 61:
+                                        case 62:
+                                        case 69:
+                                        case 70:
+                                        case 73:
+                                        case 74:
+                                        case 82:
+                                        case 83:
+                                        case 84:
+                                            Main.tile[theRegion.Area.X + j, theRegion.Area.Y + i].active = false;
+                                            TSPlayer.All.SendTileSquare(theRegion.Area.X + j, theRegion.Area.Y + i, 3);
+                                            break;
+
+                                    }
+
+                                }
+
+                            }
+
+                        }
+
+                    }
+
+                }
             }
             for (int i = 0; i < 256; i++)
             {
-
                 if (flyMode[i])
                 {
 
@@ -597,6 +1103,27 @@ namespace PluginTemplate
                 else
                     args.Player.SendMessage("Invalid mob type!", System.Drawing.Color.Red);
             }
+        }
+        public static int SearchTable(List<object> Table, string Query)
+        {
+
+            for (int i = 0; i < Table.Count; i++)
+            {
+
+                try
+                {
+                    if (Query == Table[i].ToString())
+                    {
+
+                        return (i);
+
+                    }
+                }
+                catch (Exception) { }
+
+            }
+            return (-1);
+
         }
     }
 }
