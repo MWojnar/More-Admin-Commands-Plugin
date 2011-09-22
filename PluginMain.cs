@@ -106,6 +106,9 @@ namespace PluginTemplate
             Commands.ChatCommands.Add(new Command("spawnmob", SpawnMobPlayer, "spawnmobplayer"));
             Commands.ChatCommands.Add(new Command("heal", AutoHeal, "autoheal"));
             Commands.ChatCommands.Add(new Command("fly", Fly, "fly"));
+            Commands.ChatCommands.Add(new Command("flymisc", Fetch, "fetch"));
+            Commands.ChatCommands.Add(new Command("flymisc", CarpetBody, "carpetbody"));
+            Commands.ChatCommands.Add(new Command("flymisc", CarpetSides, "carpetsides"));
         }
 
         private DateTime LastCheck = DateTime.UtcNow;
@@ -115,6 +118,13 @@ namespace PluginTemplate
             isGhost[ply] = false;
             isHeal[ply] = false;
             flyMode[ply] = false;
+            foreach (PointF entry in carpetPoints[ply])
+            {
+
+                Main.tile[(int)entry.X, (int)entry.Y].active = false;
+
+            }
+            carpetPoints[ply] = new List<PointF>();
         }
 
         void OnGetData(GetDataEventArgs e)
@@ -260,6 +270,54 @@ namespace PluginTemplate
 
         }
 
+        public static void Fetch(CommandArgs args)
+        {
+
+            if (flyMode[args.Player.Index])
+            {
+
+                List<PointF> tilesToUpdate = new List<PointF>();
+                foreach (PointF entry in carpetPoints[args.Player.Index])
+                {
+
+                    Main.tile[(int)entry.X, (int)entry.Y].active = false;
+                    tilesToUpdate.Add(new PointF(entry.X, entry.Y));
+                    carpetY[args.Player.Index] = args.Player.TileY;
+
+                }
+                foreach (PointF entry in tilesToUpdate)
+                {
+
+                    TSPlayer.All.SendTileSquare((int)entry.X, (int)entry.Y, 3);
+                    carpetPoints[args.Player.Index].Remove(entry);
+
+                }
+                args.Player.SendMessage("Carpet Fetched.");
+
+            }
+            else
+            {
+
+                args.Player.SendMessage("You have no flying carpet activated.", System.Drawing.Color.Red);
+
+            }
+
+        }
+
+        public static void CarpetBody(CommandArgs args)
+        {
+
+
+
+        }
+
+        public static void CarpetSides(CommandArgs args)
+        {
+
+
+
+        }
+
         public static void AutoHeal(CommandArgs args) 
         {
 
@@ -343,31 +401,33 @@ namespace PluginTemplate
                     try
                     {
 
-                        if (TShock.Players[i].TileY > carpetY[i])
+                        List<PointF> tilesToUpdate = new List<PointF>();
+                        if ((TShock.Players[i].TileY < carpetY[i] - 9) || ((TShock.Players[i].TileY > carpetY[i]) && (TShock.Players[i].TPlayer.velocity.Y == 0)))
                         {
 
-                                foreach (PointF entry in carpetPoints[i])
-                                {
+                            foreach (PointF entry in carpetPoints[i])
+                            {
 
-                                    Main.tile[(int)entry.X, (int)entry.Y].active = false;
-                                    TSPlayer.All.SendTileSquare((int)entry.X, (int)entry.Y, 1);
-                                    carpetPoints[i].Remove(entry);
-                                    carpetY[i] = TShock.Players[i].TileY + 10;
+                                Main.tile[(int)entry.X, (int)entry.Y].active = false;
+                                tilesToUpdate.Add(new PointF(entry.X, entry.Y));
+                                carpetY[i] = TShock.Players[i].TileY + 3;
 
-                                }
+                            }
 
                         }
                         foreach (PointF entry in carpetPoints[i])
                         {
 
-                            if (Main.tile[(int)entry.X, (int)entry.Y].type == 54)
+                            if ((Main.tile[(int)entry.X, (int)entry.Y].type == 54) || (Main.tile[(int)entry.X, (int)entry.Y].type == 30))
                             {
-                                if ((entry.Y < TShock.Players[i].TileY + 3) || (entry.Y != carpetY[i] + 3) || (Math.Abs(TShock.Players[i].TileX - entry.X) > 5))
+                                if ((entry.Y < TShock.Players[i].TileY + 3) || (entry.Y != carpetY[i] + 3) || (Math.Abs(entry.X - TShock.Players[i].TileX) > 5))
                                 {
 
-                                    Main.tile[(int)entry.X, (int)entry.Y].active = false;
-                                    TSPlayer.All.SendTileSquare((int)entry.X, (int)entry.Y, 1);
-                                    carpetPoints[i].Remove(entry);
+                                    if ((entry.Y != carpetY[i] + 2) || (Math.Abs(entry.X - TShock.Players[i].TileX) > 6) || (Math.Abs(entry.X - TShock.Players[i].TileX) < 6))
+                                    {
+                                        Main.tile[(int)entry.X, (int)entry.Y].active = false;
+                                        tilesToUpdate.Add(new PointF(entry.X, entry.Y));
+                                    }
 
                                 }
                             }
@@ -376,15 +436,14 @@ namespace PluginTemplate
 
                                 carpetY[i] = TShock.Players[i].TileY;
                                 Main.tile[(int)entry.X, (int)entry.Y].type = 54;
-                                TSPlayer.All.SendTileSquare((int)entry.X, (int)entry.Y, 3);
+                                tilesToUpdate.Add(new PointF(entry.X, entry.Y));
 
                             }
                             else if ((entry.X < TShock.Players[i].TileX - 1) || (entry.X > TShock.Players[i].TileX + 2) || (entry.Y != carpetY[i] - 1))
                             {
 
                                 Main.tile[(int)entry.X, (int)entry.Y].active = false;
-                                TSPlayer.All.SendTileSquare((int)entry.X, (int)entry.Y, 3);
-                                carpetPoints[i].Remove(entry);
+                                tilesToUpdate.Add(new PointF(entry.X, entry.Y));
 
                             }
 
@@ -406,10 +465,28 @@ namespace PluginTemplate
 
                                 Main.tile[TShock.Players[i].TileX + j, carpetY[i] + 3].type = 54;
                                 Main.tile[TShock.Players[i].TileX + j, carpetY[i] + 3].active = true;
-                                TSPlayer.All.SendTileSquare(TShock.Players[i].TileX + j, carpetY[i] + 3, 1);
+                                tilesToUpdate.Add(new PointF(TShock.Players[i].TileX + j, carpetY[i] + 3));
                                 carpetPoints[i].Add(new PointF(TShock.Players[i].TileX + j, carpetY[i] + 3));
 
                             }
+
+                        }
+                        if (!Main.tile[TShock.Players[i].TileX + 6, carpetY[i] + 2].active)
+                        {
+
+                            Main.tile[TShock.Players[i].TileX + 6, carpetY[i] + 2].type = 30;
+                            Main.tile[TShock.Players[i].TileX + 6, carpetY[i] + 2].active = true;
+                            tilesToUpdate.Add(new PointF(TShock.Players[i].TileX + 6, carpetY[i] + 2));
+                            carpetPoints[i].Add(new PointF(TShock.Players[i].TileX + 6, carpetY[i] + 2));
+
+                        }
+                        if (!Main.tile[TShock.Players[i].TileX - 6, carpetY[i] + 2].active)
+                        {
+
+                            Main.tile[TShock.Players[i].TileX - 6, carpetY[i] + 2].type = 30;
+                            Main.tile[TShock.Players[i].TileX - 6, carpetY[i] + 2].active = true;
+                            tilesToUpdate.Add(new PointF(TShock.Players[i].TileX - 6, carpetY[i] + 2));
+                            carpetPoints[i].Add(new PointF(TShock.Players[i].TileX - 6, carpetY[i] + 2));
 
                         }
                         for (int j = -1; j <= 2; j++)
@@ -420,15 +497,23 @@ namespace PluginTemplate
 
                                 Main.tile[TShock.Players[i].TileX + j, carpetY[i] - 1].type = 19;
                                 Main.tile[TShock.Players[i].TileX + j, carpetY[i] - 1].active = true;
-                                TSPlayer.All.SendTileSquare(TShock.Players[i].TileX + j, carpetY[i] - 1, 3);
+                                tilesToUpdate.Add(new PointF(TShock.Players[i].TileX + j, carpetY[i] - 1));
                                 carpetPoints[i].Add(new PointF(TShock.Players[i].TileX + j, carpetY[i] - 1));
 
                             }
 
                         }
+                        foreach (PointF entry in tilesToUpdate)
+                        {
+
+                            TSPlayer.All.SendTileSquare((int)entry.X, (int)entry.Y, 3);
+                            if (!Main.tile[(int)entry.X, (int)entry.Y].active)
+                                carpetPoints[i].Remove(entry);
+
+                        }
 
                     }
-                    catch (Exception) { }
+                    catch (Exception) {  }
 
                 }
 
