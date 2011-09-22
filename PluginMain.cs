@@ -136,6 +136,8 @@ namespace PluginTemplate
             Commands.ChatCommands.Add(new Command("flymisc", CarpetSides, "carpetsides"));
             Commands.ChatCommands.Add(new Command("editspawn", Mow, "mow"));
             Commands.ChatCommands.Add(new Command("buff", permaBuff, "permabuff"));
+            Commands.ChatCommands.Add(new Command("item", ForceGive, "forcegive"));
+            Commands.ChatCommands.Add(new Command("killall", KillAll, "killall"));
         }
 
         private DateTime LastCheck = DateTime.UtcNow;
@@ -268,6 +270,88 @@ namespace PluginTemplate
             }
             catch (Exception) { }
 
+        }
+
+        private static void KillAll(CommandArgs args)
+        {
+            foreach (TSPlayer plr in TShock.Players)
+            {
+                try
+                {
+                    if (plr != args.Player)
+                    {
+                        plr.DamagePlayer(999999);
+                        plr.SendMessage(string.Format("{0} just killed you! (along with everyone else)", args.Player.Name));
+                    }
+                }
+                catch (Exception) { }
+            }
+            args.Player.SendMessage(string.Format("You just killed everyone!"));
+        }
+
+        private static void ForceGive(CommandArgs args)
+        {
+            if (args.Parameters.Count < 2)
+            {
+                args.Player.SendMessage("Invalid syntax! Proper syntax: /forcegive <item type/id> <player> [item amount]", System.Drawing.Color.Red);
+                return;
+            }
+            if (args.Parameters[0].Length == 0)
+            {
+                args.Player.SendMessage("Missing item name/id", System.Drawing.Color.Red);
+                return;
+            }
+            if (args.Parameters[1].Length == 0)
+            {
+                args.Player.SendMessage("Missing player name", System.Drawing.Color.Red);
+                return;
+            }
+            int itemAmount = 0;
+            var items = Tools.GetItemByIdOrName(args.Parameters[0]);
+            args.Parameters.RemoveAt(0);
+            string plStr = args.Parameters[0];
+            args.Parameters.RemoveAt(0);
+            if (args.Parameters.Count > 0)
+                int.TryParse(args.Parameters[args.Parameters.Count - 1], out itemAmount);
+
+
+            if (items.Count == 0)
+            {
+                args.Player.SendMessage("Invalid item type!", System.Drawing.Color.Red);
+            }
+            else if (items.Count > 1)
+            {
+                args.Player.SendMessage(string.Format("More than one ({0}) item matched!", items.Count), System.Drawing.Color.Red);
+            }
+            else
+            {
+                var item = items[0];
+                if (item.type >= 1 && item.type < Main.maxItemTypes)
+                {
+                    var players = Tools.FindPlayer(plStr);
+                    if (players.Count == 0)
+                    {
+                        args.Player.SendMessage("Invalid player!", System.Drawing.Color.Red);
+                    }
+                    else if (players.Count > 1)
+                    {
+                        args.Player.SendMessage("More than one player matched!", System.Drawing.Color.Red);
+                    }
+                    else
+                    {
+                        var plr = players[0];
+                        if (itemAmount == 0 || itemAmount > item.maxStack)
+                            itemAmount = item.maxStack;
+                        plr.GiveItem(item.type, item.name, item.width, item.height, itemAmount);
+                        args.Player.SendMessage(string.Format("Gave {0} {1} {2}(s).", plr.Name, itemAmount, item.name));
+                        plr.SendMessage(string.Format("{0} gave you {1} {2}(s).", args.Player.Name, itemAmount, item.name));
+                    }
+                }
+                else
+                {
+                    args.Player.SendMessage("Invalid item type!", System.Drawing.Color.Red);
+                }
+            }
         }
 
         public static void permaBuff(CommandArgs args)
