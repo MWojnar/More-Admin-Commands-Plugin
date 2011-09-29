@@ -2,13 +2,11 @@
 using System.IO;
 using System.Collections.Generic;
 using System.Reflection;
-using System.Drawing;
 using Community.CsharpSqlite.SQLiteClient;
 using MySql.Data.MySqlClient;
 using Microsoft.Xna.Framework;
 using Terraria;
-using TerrariaAPI;
-using TerrariaAPI.Hooks;
+using Hooks;
 using TShockAPI;
 using TShockAPI.DB;
 using System.ComponentModel;
@@ -32,7 +30,7 @@ namespace PluginTemplate
         public static bool cansend = false;
         public static bool[] isHeal = new bool[256];
         public static bool[] flyMode = new bool[256];
-        public static List<List<PointF>> carpetPoints = new List<List<PointF>>();
+        public static List<List<Vector2>> carpetPoints = new List<List<Vector2>>();
         public static int[] carpetY = new int[256];
         public static bool[] upPressed = new bool[256];
         public static List<List<int>> buffsUsed = new List<List<int>>();
@@ -63,15 +61,22 @@ namespace PluginTemplate
             ServerHooks.Leave += OnLeave;
             NetHooks.GetData += OnGetData;
         }
-        public override void DeInitialize()
+
+        protected override void Dispose(bool disposing)
         {
-            GameHooks.Initialize -= OnInitialize;
-            GameHooks.Update -= OnUpdate;
-            ServerHooks.Chat -= OnChat;
-            NetHooks.SendData -= OnSendData;
-            ServerHooks.Leave -= OnLeave;
-            NetHooks.GetData -= OnGetData;
+            if (disposing)
+            {
+                GameHooks.Initialize -= OnInitialize;
+                GameHooks.Update -= OnUpdate;
+                ServerHooks.Chat -= OnChat;
+                NetHooks.SendData -= OnSendData;
+                ServerHooks.Leave -= OnLeave;
+                NetHooks.GetData -= OnGetData;
+            }
+
+            base.Dispose(disposing);
         }
+
         public PluginTemplate(Main game)
             : base(game)
         {
@@ -122,12 +127,12 @@ namespace PluginTemplate
                 isHeal[i] = false;
                 flyMode[i] = false;
                 upPressed[i] = false;
-                carpetPoints.Add(new List<PointF>());
+                carpetPoints.Add(new List<Vector2>());
                 buffsUsed.Add(new List<int>());
 
             }
             Commands.ChatCommands.Add(new Command("ghostmode", Ghost, "ghost"));
-            Commands.ChatCommands.Add(new Command("time",FreezeTime,"freezetime"));
+            Commands.ChatCommands.Add(new Command("time", FreezeTime, "freezetime"));
             Commands.ChatCommands.Add(new Command("spawnmob", SpawnMobPlayer, "spawnmobplayer"));
             Commands.ChatCommands.Add(new Command("heal", AutoHeal, "autoheal"));
             Commands.ChatCommands.Add(new Command("fly", Fly, "fly"));
@@ -147,13 +152,13 @@ namespace PluginTemplate
             isGhost[ply] = false;
             isHeal[ply] = false;
             flyMode[ply] = false;
-            foreach (PointF entry in carpetPoints[ply])
+            foreach (Vector2 entry in carpetPoints[ply])
             {
 
                 Main.tile[(int)entry.X, (int)entry.Y].active = false;
 
             }
-            carpetPoints[ply] = new List<PointF>();
+            carpetPoints[ply] = new List<Vector2>();
             buffsUsed[ply] = new List<int>();
         }
 
@@ -237,7 +242,7 @@ namespace PluginTemplate
                 }
                 switch (e.MsgID)
                 {
-                        
+
                     case PacketTypes.DoorUse:
                     case PacketTypes.EffectHeal:
                     case PacketTypes.EffectMana:
@@ -293,17 +298,17 @@ namespace PluginTemplate
         {
             if (args.Parameters.Count < 2)
             {
-                args.Player.SendMessage("Invalid syntax! Proper syntax: /forcegive <item type/id> <player> [item amount]", System.Drawing.Color.Red);
+                args.Player.SendMessage("Invalid syntax! Proper syntax: /forcegive <item type/id> <player> [item amount]", Color.Red);
                 return;
             }
             if (args.Parameters[0].Length == 0)
             {
-                args.Player.SendMessage("Missing item name/id", System.Drawing.Color.Red);
+                args.Player.SendMessage("Missing item name/id", Color.Red);
                 return;
             }
             if (args.Parameters[1].Length == 0)
             {
-                args.Player.SendMessage("Missing player name", System.Drawing.Color.Red);
+                args.Player.SendMessage("Missing player name", Color.Red);
                 return;
             }
             int itemAmount = 0;
@@ -317,11 +322,11 @@ namespace PluginTemplate
 
             if (items.Count == 0)
             {
-                args.Player.SendMessage("Invalid item type!", System.Drawing.Color.Red);
+                args.Player.SendMessage("Invalid item type!", Color.Red);
             }
             else if (items.Count > 1)
             {
-                args.Player.SendMessage(string.Format("More than one ({0}) item matched!", items.Count), System.Drawing.Color.Red);
+                args.Player.SendMessage(string.Format("More than one ({0}) item matched!", items.Count), Color.Red);
             }
             else
             {
@@ -331,11 +336,11 @@ namespace PluginTemplate
                     var players = Tools.FindPlayer(plStr);
                     if (players.Count == 0)
                     {
-                        args.Player.SendMessage("Invalid player!", System.Drawing.Color.Red);
+                        args.Player.SendMessage("Invalid player!", Color.Red);
                     }
                     else if (players.Count > 1)
                     {
-                        args.Player.SendMessage("More than one player matched!", System.Drawing.Color.Red);
+                        args.Player.SendMessage("More than one player matched!", Color.Red);
                     }
                     else
                     {
@@ -349,7 +354,7 @@ namespace PluginTemplate
                 }
                 else
                 {
-                    args.Player.SendMessage("Invalid item type!", System.Drawing.Color.Red);
+                    args.Player.SendMessage("Invalid item type!", Color.Red);
                 }
             }
         }
@@ -360,7 +365,7 @@ namespace PluginTemplate
             if (args.Parameters.Count == 0)
             {
 
-                args.Player.SendMessage("Improper Syntax! Proper Syntax: /permabuff buff [player]", System.Drawing.Color.Red);
+                args.Player.SendMessage("Improper Syntax! Proper Syntax: /permabuff buff [player]", Color.Red);
 
             }
             else if (args.Parameters.Count == 1)
@@ -372,12 +377,12 @@ namespace PluginTemplate
                     var found = Tools.GetBuffByName(args.Parameters[0]);
                     if (found.Count == 0)
                     {
-                        args.Player.SendMessage("Invalid buff name!", System.Drawing.Color.Red);
+                        args.Player.SendMessage("Invalid buff name!", Color.Red);
                         return;
                     }
                     else if (found.Count > 1)
                     {
-                        args.Player.SendMessage(string.Format("More than one ({0}) buff matched!", found.Count), System.Drawing.Color.Red);
+                        args.Player.SendMessage(string.Format("More than one ({0}) buff matched!", found.Count), Color.Red);
                         return;
                     }
                     id = found[0];
@@ -389,18 +394,18 @@ namespace PluginTemplate
                         args.Player.SetBuff(id, short.MaxValue);
                         buffsUsed[args.Player.Index].Add(id);
                         args.Player.SendMessage(string.Format("You have permabuffed yourself with {0}({1})!",
-                            Tools.GetBuffName(id), Tools.GetBuffDescription(id)), System.Drawing.Color.Green);
+                            Tools.GetBuffName(id), Tools.GetBuffDescription(id)), Color.Green);
                     }
                     else
                     {
                         buffsUsed[args.Player.Index].Remove(id);
                         args.Player.SendMessage(string.Format("You have removed your {0} permabuff.",
-                            Tools.GetBuffName(id)), System.Drawing.Color.Green);
+                            Tools.GetBuffName(id)), Color.Green);
 
                     }
                 }
                 else
-                    args.Player.SendMessage("Invalid buff ID!", System.Drawing.Color.Red);
+                    args.Player.SendMessage("Invalid buff ID!", Color.Red);
 
             }
             else
@@ -428,13 +433,13 @@ namespace PluginTemplate
                 if (playerList.Count > 1)
                 {
 
-                    args.Player.SendMessage("Player does not exist.", System.Drawing.Color.Red);
+                    args.Player.SendMessage("Player does not exist.", Color.Red);
 
                 }
                 else if (playerList.Count < 1)
                 {
 
-                    args.Player.SendMessage(playerList.Count.ToString() + " players matched.", System.Drawing.Color.Red);
+                    args.Player.SendMessage(playerList.Count.ToString() + " players matched.", Color.Red);
 
                 }
                 else
@@ -447,12 +452,12 @@ namespace PluginTemplate
                         var found = Tools.GetBuffByName(args.Parameters[0]);
                         if (found.Count == 0)
                         {
-                            args.Player.SendMessage("Invalid buff name!", System.Drawing.Color.Red);
+                            args.Player.SendMessage("Invalid buff name!", Color.Red);
                             return;
                         }
                         else if (found.Count > 1)
                         {
-                            args.Player.SendMessage(string.Format("More than one ({0}) buff matched!", found.Count), System.Drawing.Color.Red);
+                            args.Player.SendMessage(string.Format("More than one ({0}) buff matched!", found.Count), Color.Red);
                             return;
                         }
                         id = found[0];
@@ -464,22 +469,22 @@ namespace PluginTemplate
                             thePlayer.SetBuff(id, short.MaxValue);
                             buffsUsed[thePlayer.Index].Add(id);
                             args.Player.SendMessage(string.Format("You have permabuffed " + thePlayer.Name + " with {0}",
-                                Tools.GetBuffName(id)), System.Drawing.Color.Green);
+                                Tools.GetBuffName(id)), Color.Green);
                             thePlayer.SendMessage(string.Format("You have been permabuffed with {0}({1})!",
-                             Tools.GetBuffName(id), Tools.GetBuffDescription(id)), System.Drawing.Color.Green);
+                             Tools.GetBuffName(id), Tools.GetBuffDescription(id)), Color.Green);
                         }
                         else
                         {
                             buffsUsed[args.Player.Index].Remove(id);
                             args.Player.SendMessage(string.Format("You have removed " + thePlayer.Name + "'s {0} permabuff.",
-                                Tools.GetBuffName(id)), System.Drawing.Color.Green);
+                                Tools.GetBuffName(id)), Color.Green);
                             thePlayer.SendMessage(string.Format("Your {0} permabuff has been removed.",
-                                Tools.GetBuffName(id)), System.Drawing.Color.Green);
+                                Tools.GetBuffName(id)), Color.Green);
 
                         }
                     }
                     else
-                        args.Player.SendMessage("Invalid buff ID!", System.Drawing.Color.Red);
+                        args.Player.SendMessage("Invalid buff ID!", Color.Red);
 
                 }
 
@@ -503,7 +508,7 @@ namespace PluginTemplate
                 else
                 {
 
-                    foreach (PointF entry in carpetPoints[args.Player.Index])
+                    foreach (Vector2 entry in carpetPoints[args.Player.Index])
                     {
 
                         Main.tile[(int)entry.X, (int)entry.Y].active = false;
@@ -540,13 +545,13 @@ namespace PluginTemplate
                 if (playerList.Count > 1)
                 {
 
-                    args.Player.SendMessage("Player does not exist.", System.Drawing.Color.Red);
+                    args.Player.SendMessage("Player does not exist.", Color.Red);
 
                 }
                 else if (playerList.Count < 1)
                 {
 
-                    args.Player.SendMessage(playerList.Count.ToString() + " players matched.", System.Drawing.Color.Red);
+                    args.Player.SendMessage(playerList.Count.ToString() + " players matched.", Color.Red);
 
                 }
                 else
@@ -565,7 +570,7 @@ namespace PluginTemplate
                     else
                     {
 
-                        foreach (PointF entry in carpetPoints[thePlayer.Index])
+                        foreach (Vector2 entry in carpetPoints[thePlayer.Index])
                         {
 
                             Main.tile[(int)entry.X, (int)entry.Y].active = false;
@@ -590,16 +595,16 @@ namespace PluginTemplate
             if (flyMode[args.Player.Index])
             {
 
-                List<PointF> tilesToUpdate = new List<PointF>();
-                foreach (PointF entry in carpetPoints[args.Player.Index])
+                List<Vector2> tilesToUpdate = new List<Vector2>();
+                foreach (Vector2 entry in carpetPoints[args.Player.Index])
                 {
 
                     Main.tile[(int)entry.X, (int)entry.Y].active = false;
-                    tilesToUpdate.Add(new PointF(entry.X, entry.Y));
+                    tilesToUpdate.Add(new Vector2(entry.X, entry.Y));
                     carpetY[args.Player.Index] = args.Player.TileY;
 
                 }
-                foreach (PointF entry in tilesToUpdate)
+                foreach (Vector2 entry in tilesToUpdate)
                 {
 
                     TSPlayer.All.SendTileSquare((int)entry.X, (int)entry.Y, 3);
@@ -612,7 +617,7 @@ namespace PluginTemplate
             else
             {
 
-                args.Player.SendMessage("You have no flying carpet activated.", System.Drawing.Color.Red);
+                args.Player.SendMessage("You have no flying carpet activated.", Color.Red);
 
             }
 
@@ -649,7 +654,7 @@ namespace PluginTemplate
                     }
                     else
                     {
-                        
+
                         str += args.Parameters[i];
 
                     }
@@ -660,7 +665,7 @@ namespace PluginTemplate
                 {
                     try
                     {
-                        int index = SearchTable(SQLEditor.ReadColumn("regionMow", "Name", new List<SqlValue>()),str);
+                        int index = SearchTable(SQLEditor.ReadColumn("regionMow", "Name", new List<SqlValue>()), str);
                         if (index == -1)
                         {
 
@@ -678,7 +683,7 @@ namespace PluginTemplate
                             List<SqlValue> theList = new List<SqlValue>();
                             List<SqlValue> where = new List<SqlValue>();
                             theList.Add(new SqlValue("Mow", 0));
-                            where.Add(new SqlValue("Name","'" + str + "'"));
+                            where.Add(new SqlValue("Name", "'" + str + "'"));
                             SQLEditor.UpdateValues("regionMow", theList, where);
                             regionMow.Remove(str);
                             regionMow.Add(str, false);
@@ -699,7 +704,7 @@ namespace PluginTemplate
 
                         }
                     }
-                    catch (Exception) { args.Player.SendMessage("An error occurred when writing to the DataBase.", System.Drawing.Color.Red); }
+                    catch (Exception) { args.Player.SendMessage("An error occurred when writing to the DataBase.", Color.Red); }
 
                 }
                 else
@@ -713,7 +718,7 @@ namespace PluginTemplate
             else
             {
 
-                args.Player.SendMessage("Improper Syntax.  Proper Syntax: /mow regionname", System.Drawing.Color.Red);
+                args.Player.SendMessage("Improper Syntax.  Proper Syntax: /mow regionname", Color.Red);
 
             }
 
@@ -762,13 +767,13 @@ namespace PluginTemplate
                 if (playerList.Count > 1)
                 {
 
-                    args.Player.SendMessage("Player does not exist.", System.Drawing.Color.Red);
+                    args.Player.SendMessage("Player does not exist.", Color.Red);
 
                 }
                 else if (playerList.Count < 1)
                 {
 
-                    args.Player.SendMessage(playerList.Count.ToString() + " players matched.", System.Drawing.Color.Red);
+                    args.Player.SendMessage(playerList.Count.ToString() + " players matched.", Color.Red);
 
                 }
                 else
@@ -850,13 +855,13 @@ namespace PluginTemplate
                 if (playerList.Count > 1)
                 {
 
-                    args.Player.SendMessage("Player does not exist.", System.Drawing.Color.Red);
+                    args.Player.SendMessage("Player does not exist.", Color.Red);
 
                 }
                 else if (playerList.Count < 1)
                 {
 
-                    args.Player.SendMessage(playerList.Count.ToString() + " players matched.", System.Drawing.Color.Red);
+                    args.Player.SendMessage(playerList.Count.ToString() + " players matched.", Color.Red);
 
                 }
                 else
@@ -943,7 +948,7 @@ namespace PluginTemplate
                         TShockAPI.DB.Region theRegion = TShock.Regions.GetRegionByName(entry.Key);
                         if (theRegion != default(TShockAPI.DB.Region))
                         {
-                            
+
                             for (int i = 0; i <= theRegion.Area.Height; i++)
                             {
 
@@ -991,21 +996,21 @@ namespace PluginTemplate
                     try
                     {
 
-                        List<PointF> tilesToUpdate = new List<PointF>();
+                        List<Vector2> tilesToUpdate = new List<Vector2>();
                         if ((TShock.Players[i].TileY < carpetY[i] - 9) || ((TShock.Players[i].TileY > carpetY[i]) && (TShock.Players[i].TPlayer.velocity.Y == 0)))
                         {
 
-                            foreach (PointF entry in carpetPoints[i])
+                            foreach (Vector2 entry in carpetPoints[i])
                             {
 
                                 Main.tile[(int)entry.X, (int)entry.Y].active = false;
-                                tilesToUpdate.Add(new PointF(entry.X, entry.Y));
+                                tilesToUpdate.Add(new Vector2(entry.X, entry.Y));
                                 carpetY[i] = TShock.Players[i].TileY + 3;
 
                             }
 
                         }
-                        foreach (PointF entry in carpetPoints[i])
+                        foreach (Vector2 entry in carpetPoints[i])
                         {
 
                             if ((Main.tile[(int)entry.X, (int)entry.Y].type == 54) || (Main.tile[(int)entry.X, (int)entry.Y].type == 30))
@@ -1016,7 +1021,7 @@ namespace PluginTemplate
                                     if ((entry.Y != carpetY[i] + 2) || (Math.Abs(entry.X - TShock.Players[i].TileX) > 6) || (Math.Abs(entry.X - TShock.Players[i].TileX) < 6))
                                     {
                                         Main.tile[(int)entry.X, (int)entry.Y].active = false;
-                                        tilesToUpdate.Add(new PointF(entry.X, entry.Y));
+                                        tilesToUpdate.Add(new Vector2(entry.X, entry.Y));
                                     }
 
                                 }
@@ -1026,14 +1031,14 @@ namespace PluginTemplate
 
                                 carpetY[i] = TShock.Players[i].TileY;
                                 Main.tile[(int)entry.X, (int)entry.Y].type = 54;
-                                tilesToUpdate.Add(new PointF(entry.X, entry.Y));
+                                tilesToUpdate.Add(new Vector2(entry.X, entry.Y));
 
                             }
                             else if ((entry.X < TShock.Players[i].TileX - 1) || (entry.X > TShock.Players[i].TileX + 2) || (entry.Y != carpetY[i] - 1))
                             {
 
                                 Main.tile[(int)entry.X, (int)entry.Y].active = false;
-                                tilesToUpdate.Add(new PointF(entry.X, entry.Y));
+                                tilesToUpdate.Add(new Vector2(entry.X, entry.Y));
 
                             }
 
@@ -1055,8 +1060,8 @@ namespace PluginTemplate
 
                                 Main.tile[TShock.Players[i].TileX + j, carpetY[i] + 3].type = 54;
                                 Main.tile[TShock.Players[i].TileX + j, carpetY[i] + 3].active = true;
-                                tilesToUpdate.Add(new PointF(TShock.Players[i].TileX + j, carpetY[i] + 3));
-                                carpetPoints[i].Add(new PointF(TShock.Players[i].TileX + j, carpetY[i] + 3));
+                                tilesToUpdate.Add(new Vector2(TShock.Players[i].TileX + j, carpetY[i] + 3));
+                                carpetPoints[i].Add(new Vector2(TShock.Players[i].TileX + j, carpetY[i] + 3));
 
                             }
 
@@ -1066,8 +1071,8 @@ namespace PluginTemplate
 
                             Main.tile[TShock.Players[i].TileX + 6, carpetY[i] + 2].type = 30;
                             Main.tile[TShock.Players[i].TileX + 6, carpetY[i] + 2].active = true;
-                            tilesToUpdate.Add(new PointF(TShock.Players[i].TileX + 6, carpetY[i] + 2));
-                            carpetPoints[i].Add(new PointF(TShock.Players[i].TileX + 6, carpetY[i] + 2));
+                            tilesToUpdate.Add(new Vector2(TShock.Players[i].TileX + 6, carpetY[i] + 2));
+                            carpetPoints[i].Add(new Vector2(TShock.Players[i].TileX + 6, carpetY[i] + 2));
 
                         }
                         if (!Main.tile[TShock.Players[i].TileX - 6, carpetY[i] + 2].active)
@@ -1075,8 +1080,8 @@ namespace PluginTemplate
 
                             Main.tile[TShock.Players[i].TileX - 6, carpetY[i] + 2].type = 30;
                             Main.tile[TShock.Players[i].TileX - 6, carpetY[i] + 2].active = true;
-                            tilesToUpdate.Add(new PointF(TShock.Players[i].TileX - 6, carpetY[i] + 2));
-                            carpetPoints[i].Add(new PointF(TShock.Players[i].TileX - 6, carpetY[i] + 2));
+                            tilesToUpdate.Add(new Vector2(TShock.Players[i].TileX - 6, carpetY[i] + 2));
+                            carpetPoints[i].Add(new Vector2(TShock.Players[i].TileX - 6, carpetY[i] + 2));
 
                         }
                         for (int j = -1; j <= 2; j++)
@@ -1087,13 +1092,13 @@ namespace PluginTemplate
 
                                 Main.tile[TShock.Players[i].TileX + j, carpetY[i] - 1].type = 19;
                                 Main.tile[TShock.Players[i].TileX + j, carpetY[i] - 1].active = true;
-                                tilesToUpdate.Add(new PointF(TShock.Players[i].TileX + j, carpetY[i] - 1));
-                                carpetPoints[i].Add(new PointF(TShock.Players[i].TileX + j, carpetY[i] - 1));
+                                tilesToUpdate.Add(new Vector2(TShock.Players[i].TileX + j, carpetY[i] - 1));
+                                carpetPoints[i].Add(new Vector2(TShock.Players[i].TileX + j, carpetY[i] - 1));
 
                             }
 
                         }
-                        foreach (PointF entry in tilesToUpdate)
+                        foreach (Vector2 entry in tilesToUpdate)
                         {
 
                             TSPlayer.All.SendTileSquare((int)entry.X, (int)entry.Y, 3);
@@ -1103,7 +1108,7 @@ namespace PluginTemplate
                         }
 
                     }
-                    catch (Exception) {  }
+                    catch (Exception) { }
 
                 }
 
@@ -1134,25 +1139,25 @@ namespace PluginTemplate
 
         public void OnChat(messageBuffer msg, int ply, string text, HandledEventArgs e)
         {
-            
+
         }
 
         public static void SpawnMobPlayer(CommandArgs args)
         {
             if (args.Parameters.Count < 1 || args.Parameters.Count > 3)
             {
-                args.Player.SendMessage("Invalid syntax! Proper syntax: /spawnmob <mob name/id> [amount] [username]", System.Drawing.Color.Red);
+                args.Player.SendMessage("Invalid syntax! Proper syntax: /spawnmob <mob name/id> [amount] [username]", Color.Red);
                 return;
             }
             if (args.Parameters[0].Length == 0)
             {
-                args.Player.SendMessage("Missing mob name/id", System.Drawing.Color.Red);
+                args.Player.SendMessage("Missing mob name/id", Color.Red);
                 return;
             }
             int amount = 1;
             if (args.Parameters.Count == 3 && !int.TryParse(args.Parameters[1], out amount))
             {
-                args.Player.SendMessage("Invalid syntax! Proper syntax: /spawnmob <mob name/id> [amount] [username]", System.Drawing.Color.Red);
+                args.Player.SendMessage("Invalid syntax! Proper syntax: /spawnmob <mob name/id> [amount] [username]", Color.Red);
                 return;
             }
 
@@ -1162,19 +1167,19 @@ namespace PluginTemplate
             var players = Tools.FindPlayer(args.Parameters[2]);
             if (players.Count == 0)
             {
-                args.Player.SendMessage("Invalid player!", System.Drawing.Color.Red);
+                args.Player.SendMessage("Invalid player!", Color.Red);
             }
             else if (players.Count > 1)
             {
-                args.Player.SendMessage("More than one player matched!", System.Drawing.Color.Red);
+                args.Player.SendMessage("More than one player matched!", Color.Red);
             }
             else if (npcs.Count == 0)
             {
-                args.Player.SendMessage("Invalid mob type!", System.Drawing.Color.Red);
+                args.Player.SendMessage("Invalid mob type!", Color.Red);
             }
             else if (npcs.Count > 1)
             {
-                args.Player.SendMessage(string.Format("More than one ({0}) mob matched!", npcs.Count), System.Drawing.Color.Red);
+                args.Player.SendMessage(string.Format("More than one ({0}) mob matched!", npcs.Count), Color.Red);
             }
             else
             {
@@ -1185,7 +1190,7 @@ namespace PluginTemplate
                     Tools.Broadcast(string.Format("{0} was spawned {1} time(s) by {2}.", npc.name, amount, players[0].Name));
                 }
                 else
-                    args.Player.SendMessage("Invalid mob type!", System.Drawing.Color.Red);
+                    args.Player.SendMessage("Invalid mob type!", Color.Red);
             }
         }
         public static int SearchTable(List<object> Table, string Query)
