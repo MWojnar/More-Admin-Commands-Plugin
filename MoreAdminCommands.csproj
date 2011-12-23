@@ -20,11 +20,11 @@
     <DebugSymbols>true</DebugSymbols>
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
-    <OutputPath>..\..\TShock 3.3.4.924\ServerPlugins\</OutputPath>
+    <OutputPath>..\..\Tshock1.1.1\Tshock1.1.1\ServerPlugins\</OutputPath>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
-    <DocumentationFile>C:\Users\Michael\Downloads\TShock 3.3.4.924\ServerPlugins\TShockAPI.XML</DocumentationFile>
+    <DocumentationFile>C:\Users\Michael\Downloads\Tshock1.1.1\Tshock1.1.1\ServerPlugins\TShockAPI.XML</DocumentationFile>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <UseVSHostingProcess>true</UseVSHostingProcess>
   </PropertyGroup>
@@ -59,11 +59,11 @@
     </Reference>
     <Reference Include="MySql.Data, Version=6.3.6.0, Culture=neutral, PublicKeyToken=c5687fc88969c44d, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\TShock 3.3.3.906 (1)\ServerPlugins\MySql.Data.dll</HintPath>
+      <HintPath>..\..\FunStuff\TShockPluginTemplate\Refs\MySql.Data.dll</HintPath>
     </Reference>
     <Reference Include="MySql.Web, Version=6.3.6.0, Culture=neutral, PublicKeyToken=c5687fc88969c44d, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\TShock 3.3.3.906 (1)\ServerPlugins\MySql.Web.dll</HintPath>
+      <HintPath>Refs\MySql.Web.dll</HintPath>
     </Reference>
     <Reference Include="Newtonsoft.Json, Version=4.0.2.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
@@ -74,13 +74,14 @@
     <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="System.Drawing" />
     <Reference Include="System.Net" />
-    <Reference Include="TerrariaServ, Version=0.0.0.0, Culture=neutral, processorArchitecture=x86">
+    <Reference Include="TerrariaServer, Version=0.0.0.0, Culture=neutral, processorArchitecture=x86">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\TShock 3.3.4.924\TerrariaServ.exe</HintPath>
+      <ExecutableExtension>.exe</ExecutableExtension>
+      <HintPath>Refs\TerrariaServer.exe</HintPath>
     </Reference>
-    <Reference Include="TShockAPI, Version=3.3.4.924, Culture=neutral, processorArchitecture=MSIL">
+    <Reference Include="TShockAPI, Version=3.3.4.1217, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\TShock 3.3.4.924\ServerPlugins\TShockAPI.dll</HintPath>
+      <HintPath>Refs\TShockAPI.dll</HintPath>
     </Reference>
   </ItemGroup>
   <ItemGroup>
@@ -89,6 +90,9 @@
   </ItemGroup>
   <ItemGroup>
     <WCFMetadata Include="Service References\" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="app.config" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
